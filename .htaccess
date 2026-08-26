@@ -1,0 +1,11 @@
+Options -Indexes
+DirectoryIndex index.php
+
+# Keep implementation and database files out of direct HTTP responses.
+<FilesMatch "\.(sql|sqlite|sqlite3|db|log|ini)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "^(\.env|\.env\..*|security\.php|db\.php)$">
+    Require all denied
+</FilesMatch>
