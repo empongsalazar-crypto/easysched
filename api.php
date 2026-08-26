@@ -1235,6 +1235,10 @@ function handle(PDO $pdo): never
 
 if (!defined('EASYSCHED_LIBRARY_MODE')) {
     try {
+        $requestedAction = (string) ($_GET['action'] ?? $_POST['action'] ?? 'bootstrap');
+        if ($requestedAction === 'bootstrap' && empty($_SESSION['user_id'])) {
+            throw new ApiError(401, 'Authentication is required.');
+        }
         handle(db());
     } catch (ApiError $error) {
         respond(['ok' => false, 'error' => $error->getMessage(), 'details' => $error->details], $error->status);
