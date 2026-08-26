@@ -559,6 +559,7 @@ function bootstrap(PDO $pdo, array $user): array
         'active_run' => $run ? ['id' => (int) $run['id'], 'status' => $run['status'], 'created_at' => $run['created_at'], 'assigned_tasks' => (int) $run['assigned_tasks'], 'total_tasks' => (int) $run['total_tasks'], 'diagnostics' => json_decode($run['diagnostics_json'], true) ?: []] : null,
         'validation' => validate_published_schedule($pdo, $termId),
         'schedules' => $schedules,
+        'database_driver' => (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME),
         'cloud_sync' => cloud_sync_status($pdo),
     ];
 }

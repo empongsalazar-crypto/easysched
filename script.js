@@ -29,6 +29,7 @@
   let modalReturnFocus = null;
   let cloudSyncRunning = false;
   let cloudSyncTimer = null;
+  let registrationOpen = false;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
@@ -59,7 +60,7 @@
     try { payload = await response.json(); } catch { throw new Error('The server returned an invalid response.'); }
     if (response.status === 401) {
       state.snapshot = null;
-      showLogin();
+      if (!registrationOpen && action !== 'registration_options') showLogin();
     }
     if (!response.ok || payload.ok === false) {
       const error = new Error(payload.error || 'The request could not be completed.');
@@ -83,6 +84,7 @@
   }
 
   function showLogin(message = '') {
+    registrationOpen = false;
     $('#loginView').hidden = false; $('#appView').hidden = true;
     $('#loginView').classList.remove('registration-mode');
     $('#registrationView').hidden = true; $('#loginForm').closest('.login-panel').hidden = false;
@@ -91,6 +93,7 @@
   }
 
   async function showRegistration() {
+    registrationOpen = true;
     $('#loginView').classList.add('registration-mode'); $('#loginForm').closest('.login-panel').hidden = true; $('#registrationView').hidden = false; $('#registrationError').textContent = '';
     try {
       const options = await request('registration_options');
@@ -128,6 +131,10 @@
     const label = $('#cloudStatusText');
     if (!dot || !label) return;
     dot.className = 'status-dot';
+    if (state.snapshot?.database_driver === 'pgsql') {
+      label.textContent = 'Supabase PostgreSQL';
+      return;
+    }
     if (!sync?.configured) {
       label.textContent = 'Local SQLite';
       return;
@@ -365,6 +372,6 @@
     }
   }
 
-  async function start() { bindEvents(); window.setInterval(syncCloud, 15000); try { const result = await request('bootstrap'); applySnapshot(result); } catch (error) { if (error.status !== 401) showLogin(error.message); else showLogin(); } }
+  async function start() { bindEvents(); window.setInterval(syncCloud, 15000); try { const result = await request('bootstrap'); if (!registrationOpen) applySnapshot(result); } catch (error) { if (error.status !== 401 && !registrationOpen) showLogin(error.message); else if (error.status === 401 && !registrationOpen) showLogin(); } }
   document.addEventListener('DOMContentLoaded', start);
 })();

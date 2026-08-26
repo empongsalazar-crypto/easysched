@@ -18,13 +18,15 @@ function db(): PDO
         $pdo = new PDO($dsn, rawurldecode((string) $parts['user']), rawurldecode((string) $parts['pass']));
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-        $schema = file_get_contents(__DIR__ . DIRECTORY_SEPARATOR . 'schema.postgres.sql');
-        if ($schema === false) {
-            throw new RuntimeException('PostgreSQL schema is unavailable.');
+        if ((string) (getenv('EASYSCHED_SKIP_SCHEMA') ?: '') !== '1') {
+            $schema = file_get_contents(__DIR__ . DIRECTORY_SEPARATOR . 'schema.postgres.sql');
+            if ($schema === false) {
+                throw new RuntimeException('PostgreSQL schema is unavailable.');
+            }
+            $pdo->exec($schema);
+            seed_database($pdo);
+            normalize_institution_branding($pdo);
         }
-        $pdo->exec($schema);
-        seed_database($pdo);
-        normalize_institution_branding($pdo);
         return $pdo;
     }
 
