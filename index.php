@@ -41,6 +41,7 @@ easysched_send_security_headers();
                 <p class="form-error" id="loginError" role="alert"></p>
                 <button class="button button-primary button-wide" type="submit">Sign in</button>
             </form>
+            <button class="button button-ghost button-wide" id="forgotPasswordButton" type="button">Forgot password?</button>
             <button class="button button-ghost button-wide" id="showRegistrationButton" type="button">New student? Request an account</button>
             <p class="login-note">Student requests require administrator approval before sign-in.</p>
         </div>
@@ -53,6 +54,8 @@ easysched_send_security_headers();
                 <div class="field"><label for="registrationUsername">Preferred username</label><input id="registrationUsername" required maxlength="80"></div>
                 <div class="field"><label for="registrationRef">Enrollment reference</label><input id="registrationRef" required maxlength="60"></div>
                 <div class="field"><label for="registrationEmail">Email</label><input id="registrationEmail" type="email" maxlength="180"></div>
+                <div class="field"><label for="registrationOtp">Email verification code</label><input id="registrationOtp" inputmode="numeric" maxlength="6" placeholder="Click Send code first"></div>
+                <button class="button button-ghost button-wide" id="sendRegistrationOtpButton" type="button">Send email code</button>
                 <div class="field"><label for="registrationProgram">Program</label><select id="registrationProgram" required><option value="">Loading programs...</option></select></div>
                 <div class="field"><label for="registrationYear">Year level</label><input id="registrationYear" type="number" min="1" max="8" required></div>
                 <div class="field"><label for="registrationSection">Section (optional)</label><select id="registrationSection"><option value="">No section assigned yet</option></select></div>
@@ -60,6 +63,18 @@ easysched_send_security_headers();
                 <p class="form-error" id="registrationError" role="alert"></p>
                 <button class="button button-primary button-wide" type="submit">Submit registration</button>
                 <button class="button button-ghost button-wide" id="backToLoginButton" type="button">Back to sign in</button>
+            </form>
+        </div>
+        <div class="login-panel registration-panel" id="forgotPasswordView" hidden>
+            <div class="brand-lockup brand-lockup-dark"><div><strong>Password recovery</strong><span>Verify your email to reset access</span></div></div>
+            <p class="eyebrow">Account recovery</p><h1>Reset your password</h1>
+            <form id="forgotPasswordForm" novalidate>
+                <div class="field"><label for="resetAccount">Username or email</label><input id="resetAccount" required maxlength="180"></div>
+                <button class="button button-ghost button-wide" id="sendResetOtpButton" type="button">Send reset code</button>
+                <div class="field"><label for="resetOtp">Verification code</label><input id="resetOtp" inputmode="numeric" maxlength="6"></div>
+                <div class="field"><label for="resetPassword">New password</label><input id="resetPassword" type="password" minlength="10" required></div>
+                <div class="field"><label for="resetPasswordConfirm">Confirm new password</label><input id="resetPasswordConfirm" type="password" minlength="10" required></div>
+                <p class="form-error" id="resetError" role="alert"></p><button class="button button-primary button-wide" type="submit">Reset password</button><button class="button button-ghost button-wide" id="backFromResetButton" type="button">Back to sign in</button>
             </form>
         </div>
         <div class="login-aside" id="loginParallax" aria-label="New Sinai campus">

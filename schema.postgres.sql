@@ -171,11 +171,23 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 CREATE TABLE IF NOT EXISTS system_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS login_throttles (throttle_key TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0), window_started_at BIGINT NOT NULL, locked_until BIGINT NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS email_otps (
+    id BIGSERIAL PRIMARY KEY,
+    purpose TEXT NOT NULL CHECK (purpose IN ('REGISTRATION', 'PASSWORD_RESET')),
+    identifier TEXT NOT NULL,
+    code_hash TEXT NOT NULL,
+    expires_at BIGINT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+    max_attempts INTEGER NOT NULL DEFAULT 5 CHECK (max_attempts BETWEEN 1 AND 10),
+    consumed_at BIGINT,
+    created_at_epoch BIGINT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_sections_term ON sections(term_id);
 CREATE INDEX IF NOT EXISTS idx_offerings_term ON course_offerings(term_id, status);
 CREATE INDEX IF NOT EXISTS idx_offerings_section ON course_offerings(section_id);
 CREATE INDEX IF NOT EXISTS idx_offerings_instructor ON course_offerings(instructor_id);
 CREATE INDEX IF NOT EXISTS idx_pending_registrations_status ON pending_registrations(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_email_otps_lookup ON email_otps(purpose, identifier, created_at_epoch DESC);
 CREATE INDEX IF NOT EXISTS idx_schedule_runs_term_status ON schedule_runs(term_id, status);
 CREATE INDEX IF NOT EXISTS idx_schedule_entries_run ON schedule_entries(run_id);
 CREATE INDEX IF NOT EXISTS idx_occupancy_run_resource ON schedule_occupancy(run_id, resource_type, resource_id);

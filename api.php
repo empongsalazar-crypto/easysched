@@ -192,12 +192,112 @@ function recent_login_security_alert(PDO $pdo, string $username): ?array
     return $count > 0 ? ['failed_attempts' => $count, 'window_hours' => 24] : null;
 }
 
+function send_email_message(string $to, string $subject, string $html): void
+{
+    $apiKey = trim((string) (getenv('RESEND_API_KEY') ?: ''));
+    $from = trim((string) (getenv('EASYSCHED_EMAIL_FROM') ?: ''));
+    if ($apiKey === '' || $from === '') throw new ApiError(503, 'Email delivery is not configured yet.');
+    if (!function_exists('curl_init')) throw new ApiError(503, 'Email delivery is unavailable on this server.');
+    $curl = curl_init('https://api.resend.com/emails');
+    curl_setopt_array($curl, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $apiKey, 'Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode(['from' => $from, 'to' => [$to], 'subject' => $subject, 'html' => $html], JSON_THROW_ON_ERROR),
+    ]);
+    $response = curl_exec($curl);
+    $status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+    $error = curl_error($curl);
+    curl_close($curl);
+    if ($response === false || $status < 200 || $status >= 300) {
+        error_log('EasySched email error: HTTP ' . $status . ' ' . $error);
+        throw new ApiError(503, 'The verification email could not be sent. Please try again later.');
+    }
+}
+
+function issue_email_otp(PDO $pdo, string $purpose, string $identifier, string $email): array
+{
+    $now = time();
+    $stmt = $pdo->prepare('SELECT created_at_epoch FROM email_otps WHERE purpose = ? AND identifier = ? ORDER BY id DESC LIMIT 1');
+    $stmt->execute([$purpose, $identifier]);
+    $last = (int) ($stmt->fetchColumn() ?: 0);
+    if ($last > 0 && $now - $last < 60) throw new ApiError(429, 'Please wait one minute before requesting another code.');
+    $pdo->prepare('UPDATE email_otps SET consumed_at = ? WHERE purpose = ? AND identifier = ? AND consumed_at IS NULL')->execute([$now, $purpose, $identifier]);
+    $code = (string) random_int(100000, 999999);
+    $insert = $pdo->prepare('INSERT INTO email_otps (purpose, identifier, code_hash, expires_at, attempts, max_attempts, created_at_epoch) VALUES (?, ?, ?, ?, 0, 5, ?)');
+    $insert->execute([$purpose, $identifier, password_hash($code, PASSWORD_DEFAULT), $now + 600, $now]);
+    $label = $purpose === 'REGISTRATION' ? 'registration verification' : 'password reset';
+    $safeCode = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
+    send_email_message($email, 'EasySched verification code', '<p>Your EasySched ' . $label . ' code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">' . $safeCode . '</p><p>This code expires in 10 minutes. Do not share it with anyone.</p>');
+    return ['message' => 'A six-digit verification code was sent to your email.'];
+}
+
+function consume_email_otp(PDO $pdo, string $purpose, string $identifier, string $code): void
+{
+    if (!preg_match('/^\d{6}$/', $code)) throw new ApiError(422, 'Enter the six-digit verification code.');
+    $stmt = $pdo->prepare('SELECT id, code_hash, expires_at, attempts, max_attempts FROM email_otps WHERE purpose = ? AND identifier = ? AND consumed_at IS NULL ORDER BY id DESC LIMIT 1');
+    $stmt->execute([$purpose, $identifier]);
+    $row = $stmt->fetch();
+    if (!$row || (int) $row['expires_at'] < time()) throw new ApiError(422, 'The verification code is invalid or expired. Request a new code.');
+    if ((int) $row['attempts'] >= (int) $row['max_attempts']) throw new ApiError(429, 'Too many incorrect attempts. Request a new code.');
+    if (!password_verify($code, (string) $row['code_hash'])) {
+        $pdo->prepare('UPDATE email_otps SET attempts = attempts + 1 WHERE id = ?')->execute([(int) $row['id']]);
+        throw new ApiError(422, 'The verification code is invalid or expired.');
+    }
+    $pdo->prepare('UPDATE email_otps SET consumed_at = ? WHERE id = ?')->execute([time(), (int) $row['id']]);
+}
+
+function request_registration_otp(PDO $pdo, array $input): array
+{
+    $email = input_email($input);
+    if ($email === '') throw new ApiError(422, 'Email address is required.');
+    $stmt = $pdo->prepare('SELECT id FROM users WHERE lower(email) = ? UNION SELECT id FROM pending_registrations WHERE lower(email) = ? AND status = \'PENDING\' LIMIT 1');
+    $stmt->execute([$email, $email]);
+    if ($stmt->fetchColumn()) throw new ApiError(409, 'That email is already registered or awaiting review.');
+    return issue_email_otp($pdo, 'REGISTRATION', $email, $email);
+}
+
+function request_password_reset_otp(PDO $pdo, array $input): array
+{
+    $account = strtolower(input_string($input, 'account', 180));
+    $stmt = $pdo->prepare('SELECT email FROM users WHERE active = 1 AND (lower(username) = ? OR lower(email) = ?) LIMIT 1');
+    $stmt->execute([$account, $account]);
+    $email = strtolower((string) ($stmt->fetchColumn() ?: ''));
+    if ($email !== '') {
+        issue_email_otp($pdo, 'PASSWORD_RESET', $email, $email);
+        $_SESSION['password_reset_identifier'] = $email;
+    } else {
+        unset($_SESSION['password_reset_identifier']);
+    }
+    return ['message' => 'If the account exists and has an email address, a verification code has been sent.'];
+}
+
+function reset_forgotten_password(PDO $pdo, array $input): array
+{
+    $identifier = strtolower((string) ($_SESSION['password_reset_identifier'] ?? ''));
+    if ($identifier === '') throw new ApiError(422, 'Request a new password-reset code first.');
+    $code = input_string($input, 'otp', 6);
+    $password = (string) ($input['password'] ?? '');
+    $confirm = (string) ($input['confirm_password'] ?? '');
+    $length = function_exists('mb_strlen') ? mb_strlen($password) : strlen($password);
+    if ($password !== $confirm || $length < 10 || !preg_match('/[A-Za-z]/', $password) || !preg_match('/\d/', $password)) throw new ApiError(422, 'Use matching passwords with at least 10 characters, including a letter and a number.');
+    consume_email_otp($pdo, 'PASSWORD_RESET', $identifier, $code);
+    $stmt = $pdo->prepare('UPDATE users SET password_hash = ? WHERE lower(email) = ? AND active = 1');
+    $stmt->execute([password_hash($password, PASSWORD_DEFAULT), $identifier]);
+    if ($stmt->rowCount() < 1) throw new ApiError(422, 'The reset request is invalid or expired.');
+    unset($_SESSION['password_reset_identifier']);
+    $pdo->prepare('DELETE FROM login_throttles WHERE throttle_key = ?')->execute([login_account_key($identifier)]);
+    return ['message' => 'Password reset successfully. You can now sign in.'];
+}
+
 function register_student(PDO $pdo, array $input): array
 {
     $username = strtolower(input_string($input, 'username', 80));
     if (!preg_match('/^[a-z0-9][a-z0-9._-]*$/', $username)) throw new ApiError(422, 'Username may contain only letters, numbers, dots, hyphens, and underscores.');
     $displayName = input_string($input, 'display_name', 160);
     $email = input_email($input);
+    if ($email === '') throw new ApiError(422, 'Email address is required.');
     $enrollmentRef = input_string($input, 'enrollment_ref', 60);
     $programId = input_int($input, 'program_id', 1, 100000000);
     $yearLevel = input_int($input, 'year_level', 1, 8);
@@ -214,6 +314,7 @@ function register_student(PDO $pdo, array $input): array
     $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ? UNION SELECT id FROM pending_registrations WHERE username = ? AND status = \'PENDING\' LIMIT 1');
     $stmt->execute([$username, $username]);
     if ($stmt->fetchColumn()) throw new ApiError(409, 'That username is already registered or awaiting review.');
+    consume_email_otp($pdo, 'REGISTRATION', $email, input_string($input, 'otp', 6));
     try {
         $stmt = $pdo->prepare('INSERT INTO pending_registrations (username, display_name, email, enrollment_ref, program_id, year_level, section_id, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
         $stmt->execute([$username, $displayName, $email, $enrollmentRef, $programId, $yearLevel, $sectionId, password_hash($password, PASSWORD_DEFAULT)]);
@@ -1196,6 +1297,18 @@ function handle(PDO $pdo): never
     if ($action === 'register') {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') throw new ApiError(405, 'POST is required.');
         respond(['ok' => true, 'data' => register_student($pdo, $input)]);
+    }
+    if ($action === 'request_registration_otp') {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') throw new ApiError(405, 'POST is required.');
+        respond(['ok' => true, 'data' => request_registration_otp($pdo, $input)]);
+    }
+    if ($action === 'request_password_reset') {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') throw new ApiError(405, 'POST is required.');
+        respond(['ok' => true, 'data' => request_password_reset_otp($pdo, $input)]);
+    }
+    if ($action === 'reset_password') {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') throw new ApiError(405, 'POST is required.');
+        respond(['ok' => true, 'data' => reset_forgotten_password($pdo, $input)]);
     }
     if ($action === 'registration_options') {
         $programs = $pdo->query('SELECT id, code, name FROM programs WHERE active = 1 ORDER BY code')->fetchAll();

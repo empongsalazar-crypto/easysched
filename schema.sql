@@ -201,6 +201,18 @@ CREATE TABLE IF NOT EXISTS login_throttles (
     locked_until INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS email_otps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    purpose TEXT NOT NULL CHECK (purpose IN ('REGISTRATION', 'PASSWORD_RESET')),
+    identifier TEXT NOT NULL,
+    code_hash TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+    max_attempts INTEGER NOT NULL DEFAULT 5 CHECK (max_attempts BETWEEN 1 AND 10),
+    consumed_at INTEGER,
+    created_at_epoch INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS cloud_sync_state (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     dirty INTEGER NOT NULL DEFAULT 1 CHECK (dirty IN (0, 1)),
@@ -216,6 +228,7 @@ CREATE INDEX IF NOT EXISTS idx_offerings_term ON course_offerings(term_id, statu
 CREATE INDEX IF NOT EXISTS idx_offerings_section ON course_offerings(section_id);
 CREATE INDEX IF NOT EXISTS idx_offerings_instructor ON course_offerings(instructor_id);
 CREATE INDEX IF NOT EXISTS idx_pending_registrations_status ON pending_registrations(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_email_otps_lookup ON email_otps(purpose, identifier, created_at_epoch DESC);
 CREATE INDEX IF NOT EXISTS idx_schedule_runs_term_status ON schedule_runs(term_id, status);
 CREATE INDEX IF NOT EXISTS idx_schedule_entries_run ON schedule_entries(run_id);
 CREATE INDEX IF NOT EXISTS idx_occupancy_run_resource ON schedule_occupancy(run_id, resource_type, resource_id);
