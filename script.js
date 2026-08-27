@@ -105,7 +105,7 @@
   }
 
   async function sendRegistrationOtp() { try { const result = await request('request_registration_otp', { method: 'POST', body: { email: $('#registrationEmail').value } }); showToast('Code sent', result.message); } catch (error) { $('#registrationError').textContent = error.message; } }
-  function showForgotPassword() { registrationOpen = true; $('#loginForm').closest('.login-panel').hidden = true; $('#registrationView').hidden = true; $('#forgotPasswordView').hidden = false; $('#resetError').textContent = ''; $('#resetAccount').focus(); }
+  function showForgotPassword() { registrationOpen = true; $('#loginView').classList.add('registration-mode'); $('#loginForm').closest('.login-panel').hidden = true; $('#registrationView').hidden = true; $('#forgotPasswordView').hidden = false; $('#resetError').textContent = ''; $('#resetAccount').focus(); }
   async function sendResetOtp() { try { const result = await request('request_password_reset', { method: 'POST', body: { account: $('#resetAccount').value } }); showToast('Check your email', result.message); } catch (error) { $('#resetError').textContent = error.message; } }
   async function resetPassword(event) { event.preventDefault(); try { const result = await request('reset_password', { method: 'POST', body: { otp: $('#resetOtp').value, password: $('#resetPassword').value, confirm_password: $('#resetPasswordConfirm').value } }); showLogin(); showToast('Password reset', result.message); } catch (error) { $('#resetError').textContent = error.message; } }
 
