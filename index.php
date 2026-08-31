@@ -11,7 +11,7 @@ easysched_send_security_headers();
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="New Sinai School and Colleges Sta. Rosa, Inc. automated class scheduling system">
     <title>EasySched | New Sinai School and Colleges Sta. Rosa, Inc.</title>
-    <link rel="stylesheet" href="styles.css?v=20260831-image-captcha">
+    <link rel="stylesheet" href="styles.css?v=20260831-building-crop">
 </head>
 <body>
     <a class="skip-link" href="#mainContent">Skip to content</a>

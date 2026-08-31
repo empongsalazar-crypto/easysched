@@ -368,3 +368,10 @@ body { background: var(--canvas); color: var(--ink); font-family: Inter, 'Plus J
 @media (max-width: 420px) {
   .captcha-image-row { grid-template-columns: minmax(0, 1fr) 42px; }
 }
+
+/* Keep the supplied school artwork inside the original circular frame. */
+#loginView:not(.registration-mode) .campus-photo {
+  background-image: url('assets/school-building-clear.png');
+  background-position: center;
+  background-size: cover;
+}
