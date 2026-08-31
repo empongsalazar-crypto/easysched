@@ -118,7 +118,15 @@
     $('#loginCaptchaWrap').hidden = !required;
     $('#loginCaptcha').required = required;
     $('#loginCaptcha').value = '';
-    if (required) $('#loginCaptchaLabel').textContent = details.captcha_question || 'Security check';
+    if (required) $('#loginCaptchaImage').src = `captcha.php?v=${Date.now()}`;
+    else $('#loginCaptchaImage').removeAttribute('src');
+  }
+
+  function refreshLoginCaptcha() {
+    if ($('#loginCaptchaWrap').hidden) return;
+    $('#loginCaptcha').value = '';
+    $('#loginCaptchaImage').src = `captcha.php?refresh=1&v=${Date.now()}`;
+    $('#loginCaptcha').focus();
   }
 
   function showApp() {
@@ -361,6 +369,7 @@
   function toggleSidebar() { const open = $('#sidebar').classList.toggle('open'); $('#sidebarBackdrop').classList.toggle('active', open); $('#menuButton').setAttribute('aria-expanded', String(open)); }
 
   function bindEvents() {
+    $('#refreshLoginCaptcha').addEventListener('click', refreshLoginCaptcha);
     $('#loginForm').addEventListener('submit', login); $('#registrationForm').addEventListener('submit', registerStudent); $('#showRegistrationButton').addEventListener('click', showRegistration); $('#forgotPasswordButton').addEventListener('click', showForgotPassword); $('#backToLoginButton').addEventListener('click', () => showLogin()); $('#backFromResetButton').addEventListener('click', () => showLogin()); $('#sendRegistrationOtpButton').addEventListener('click', sendRegistrationOtp); $('#sendResetOtpButton').addEventListener('click', sendResetOtp); $('#forgotPasswordForm').addEventListener('submit', resetPassword); $('#logoutButton').addEventListener('click', logout); $('#menuButton').addEventListener('click', toggleSidebar); $('#sidebarBackdrop').addEventListener('click', closeSidebar); $('#modalCloseButton').addEventListener('click', closeModal); $('#modalCancelButton').addEventListener('click', closeModal); $('#modalForm').addEventListener('submit', (event) => modalMode === 'edit-schedule' ? submitScheduleEditor(event) : submitModal(event)); $('#generateButton').addEventListener('click', generate); $('#dashboardGenerateButton').addEventListener('click', generate); $('#exportButton').addEventListener('click', exportSchedule); $('#reportExportButton').addEventListener('click', exportSchedule); $('#printButton').addEventListener('click', () => window.print()); $('#settingsForm').addEventListener('submit', saveSettings); $('#passwordForm').addEventListener('submit', changePassword);
     $('#globalSearch').addEventListener('input', (event) => { state.query = event.target.value; if (state.page === 'schedules') renderSchedules(); if (state.page === 'data') renderData(); }); $('#scheduleViewFilter').addEventListener('change', (event) => { state.scheduleView = event.target.value; state.scheduleFilter = 'all'; renderSchedules(); }); $('#scheduleFilterValue').addEventListener('change', (event) => { state.scheduleFilter = event.target.value; renderSchedules(); }); $('#addRecordButton').addEventListener('click', () => openDataRecord(state.dataTab));
     document.addEventListener('click', (event) => { const navigateButton = event.target.closest('[data-navigate]'); if (navigateButton) navigate(navigateButton.dataset.navigate); const dataTab = event.target.closest('[data-data-tab]'); if (dataTab) { state.dataTab = dataTab.dataset.dataTab; $$('.tab-button').forEach((button) => { const active = button.dataset.dataTab === state.dataTab; button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active)); }); renderData(); } const review = event.target.closest('.review-registration'); if (review) reviewRegistration(Number(review.dataset.registrationId), review.dataset.decision); const edit = event.target.closest('.edit-record'); if (edit) openDataRecord(edit.dataset.entity, Number(edit.dataset.recordId)); const del = event.target.closest('.delete-record'); if (del) deleteRecord(del.dataset.entity, Number(del.dataset.recordId)); const editEntry = event.target.closest('.edit-entry'); if (editEntry) openScheduleEditor(Number(editEntry.dataset.entryId)); const cancelEntry = event.target.closest('.cancel-entry'); if (cancelEntry) cancelScheduleEntry(Number(cancelEntry.dataset.entryId)); });

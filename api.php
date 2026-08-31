@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'db.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'security.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'captcha_challenge.php';
 
 // New Sinai School and Colleges Sta. Rosa, Inc. schedules run Monday through Friday. Keeping the day domain
 // explicit prevents the solver from publishing weekend classes accidentally.
@@ -158,19 +159,12 @@ function login_captcha_required(PDO $pdo, string $ipKey, string $accountKey, int
 
 function login_captcha_valid(array $input): bool
 {
-    if (empty($_SESSION['login_challenge_answer'])) return true;
-    $answer = trim((string) ($input['captcha'] ?? ''));
-    $valid = hash_equals((string) $_SESSION['login_challenge_answer'], $answer);
-    unset($_SESSION['login_challenge_answer'], $_SESSION['login_challenge_question']);
-    return $valid;
+    return easysched_captcha_validate((string) ($input['captcha'] ?? ''));
 }
 
 function login_captcha_issue(): array
 {
-    $left = random_int(2, 9); $right = random_int(1, 9);
-    $_SESSION['login_challenge_question'] = "What is {$left} + {$right}?";
-    $_SESSION['login_challenge_answer'] = (string) ($left + $right);
-    return ['captcha_required' => true, 'captcha_question' => $_SESSION['login_challenge_question']];
+    return easysched_captcha_issue();
 }
 
 function login_failure(PDO $pdo, string $username, string $ipKey, string $accountKey, int $now, string $reason): never
@@ -1285,12 +1279,14 @@ function handle(PDO $pdo): never
         $username = strtolower(trim((string) ($input['username'] ?? ''))); $password = (string) ($input['password'] ?? '');
         $ipKey = login_ip_key(); $accountKey = login_account_key($username);
         assert_login_allowed($pdo, $ipKey, $now); assert_login_allowed($pdo, $accountKey, $now);
-        if (login_captcha_required($pdo, $ipKey, $accountKey, $now) && !login_captcha_valid($input)) { login_failure($pdo, $username, $ipKey, $accountKey, $now, 'captcha_failed'); }
+        if (login_captcha_required($pdo, $ipKey, $accountKey, $now) && !login_captcha_valid($input)) {
+            throw new ApiError(422, 'The security answer is incorrect or expired. Try the new image.', login_captcha_issue());
+        }
         if ($username === '' || strlen($username) > 80 || $password === '' || (function_exists('mb_strlen') ? mb_strlen($password) : strlen($password)) > 200) login_failure($pdo, $username, $ipKey, $accountKey, $now, 'invalid_input');
         $stmt = $pdo->prepare('SELECT * FROM users WHERE username = ? AND active = 1 LIMIT 1'); $stmt->execute([$username]); $record = $stmt->fetch();
         if (!$record || !password_verify($password, $record['password_hash'])) login_failure($pdo, $username, $ipKey, $accountKey, $now, 'invalid_credentials');
         $pdo->prepare('DELETE FROM login_throttles WHERE throttle_key IN (?, ?)')->execute([$ipKey, $accountKey]);
-        unset($_SESSION['login_challenge_answer'], $_SESSION['login_challenge_question']);
+        easysched_captcha_clear();
         session_regenerate_id(true); $_SESSION['user_id']=(int)$record['id']; $_SESSION['csrf']=bin2hex(random_bytes(32));
         $user=current_user($pdo); audit($pdo,$user,'LOGIN'); $snapshot = bootstrap($pdo,$user); $snapshot['security_alert'] = recent_login_security_alert($pdo, (string) $user['username']); respond(['ok'=>true,'data'=>$snapshot]);
     }

@@ -11,7 +11,7 @@ easysched_send_security_headers();
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="New Sinai School and Colleges Sta. Rosa, Inc. automated class scheduling system">
     <title>EasySched | New Sinai School and Colleges Sta. Rosa, Inc.</title>
-    <link rel="stylesheet" href="styles.css?v=20260822-premium">
+    <link rel="stylesheet" href="styles.css?v=20260831-image-captcha">
 </head>
 <body>
     <a class="skip-link" href="#mainContent">Skip to content</a>
@@ -35,8 +35,12 @@ easysched_send_security_headers();
                     <input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="200">
                 </div>
                 <div class="field" id="loginCaptchaWrap" hidden>
-                    <label for="loginCaptcha" id="loginCaptchaLabel">Security check</label>
-                    <input id="loginCaptcha" name="captcha" inputmode="numeric" autocomplete="off" maxlength="8">
+                    <label for="loginCaptcha">Security check: solve the image</label>
+                    <div class="captcha-image-row">
+                        <img id="loginCaptchaImage" width="300" height="96" alt="Mathematical security question">
+                        <button class="captcha-refresh" id="refreshLoginCaptcha" type="button" aria-label="Get another security question" title="Get another question">&#8635;</button>
+                    </div>
+                    <input id="loginCaptcha" name="captcha" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="3" placeholder="Enter the answer">
                 </div>
                 <p class="form-error" id="loginError" role="alert"></p>
                 <button class="button button-primary button-wide" type="submit">Sign in</button>
@@ -161,6 +165,6 @@ easysched_send_security_headers();
     <div class="modal-backdrop" id="modalBackdrop" hidden><section class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-header"><div><p class="eyebrow" id="modalEyebrow">Record</p><h2 id="modalTitle">Edit record</h2></div><button class="icon-button" id="modalCloseButton" type="button" aria-label="Close dialog">Close</button></div><form id="modalForm"><div class="modal-body" id="modalBody"></div><div class="modal-footer"><button class="button button-ghost" id="modalCancelButton" type="button">Cancel</button><button class="button button-primary" type="submit">Save</button></div></form></section></div>
     <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
     <div class="sr-only" id="liveRegion" aria-live="polite"></div>
-    <script src="script.js?v=20260822-premium" defer></script>
+    <script src="script.js?v=20260831-image-captcha" defer></script>
 </body>
 </html>
